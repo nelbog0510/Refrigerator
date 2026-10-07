@@ -1,1 +1,1 @@
-print("HELLO WORLD")
+# [A 전담] 수기/영수증 OCR 입력 + 재료 관리 목록/카테고리
