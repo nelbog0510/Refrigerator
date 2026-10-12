@@ -8,6 +8,7 @@ import { ChatPage } from '@/pages/ChatPage'
 import { HomePage } from '@/pages/HomePage'
 import { InventoryPage } from '@/pages/InventoryPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { LotDetailPage } from '@/pages/LotDetailPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RecipesPage } from '@/pages/RecipesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -30,6 +31,7 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <HomePage /> },
               { path: 'inventory', element: <InventoryPage /> },
+              { path: 'inventory/:lotId', element: <LotDetailPage /> },
               { path: 'chat', element: <ChatPage /> },
               { path: 'recipes', element: <RecipesPage /> },
               { path: 'add', element: <AddIngredientPage /> },

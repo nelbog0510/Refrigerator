@@ -32,6 +32,11 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+vi.mock('@/features/inventory/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/inventory/api')>()),
+  listLots: async () => [],
+}))
+
 const SESSION = { user: { email: 'user@example.com' } }
 
 function renderAt(path: string) {
