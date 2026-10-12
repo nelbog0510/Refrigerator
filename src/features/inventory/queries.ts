@@ -51,9 +51,32 @@ export function useDeleteLot() {
   return useMutation({ mutationFn: deleteLot, onSettled: invalidate })
 }
 
-export function useRestoreLot() {
+/** 여러 건을 한 번에 처리한 결과. 일부만 성공할 수 있다. */
+async function settleAll<T>(tasks: Promise<T>[]) {
+  const results = await Promise.allSettled(tasks)
+  const succeeded = results.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  )
+  if (succeeded.length === 0) {
+    throw (results[0] as PromiseRejectedResult).reason
+  }
+  return { succeeded, failedCount: results.length - succeeded.length }
+}
+
+export function useDeleteLots() {
   const invalidate = useInvalidateInventory()
-  return useMutation({ mutationFn: restoreLot, onSettled: invalidate })
+  return useMutation({
+    mutationFn: (lots: LotRef[]) => settleAll(lots.map(deleteLot)),
+    onSettled: invalidate,
+  })
+}
+
+export function useRestoreLots() {
+  const invalidate = useInvalidateInventory()
+  return useMutation({
+    mutationFn: (ids: string[]) => settleAll(ids.map(restoreLot)),
+    onSettled: invalidate,
+  })
 }
 
 export function inventoryErrorMessage(error: unknown): string {

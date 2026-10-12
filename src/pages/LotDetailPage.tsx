@@ -91,7 +91,7 @@ function LotDetail({ lot }: { lot: Lot }) {
       onSuccess: () => {
         const flash: InventoryFlash = {
           notice: `‘${lot.name}’을(를) 삭제했습니다.`,
-          undoDeleteLotId: lot.id,
+          undoDeleteLotIds: [lot.id],
         }
         navigate(`/inventory?loc=${lot.storage_location}`, { state: flash })
       },

@@ -149,11 +149,10 @@ describe('재료 관리 화면', () => {
 
     const milk = await screen.findByRole('link', { name: /우유/ })
     expect(milk).toHaveTextContent('1L')
-    expect(milk).toHaveTextContent(/유통기한 기한 경과 \d+일/)
+    expect(milk).toHaveTextContent(/기한 경과 \d+일/)
     expect(screen.getByRole('link', { name: /대파/ })).toHaveTextContent('소비기한 미등록')
     expect(screen.queryByRole('link', { name: /만두/ })).not.toBeInTheDocument()
-    expect(tab(/냉장/)).toHaveTextContent('냉장 2')
-    expect(tab(/냉동/)).toHaveTextContent('냉동 1')
+    expect(screen.getByRole('heading', { level: 2, name: '냉장실' })).toBeInTheDocument()
 
     await userEvent.click(tab(/냉동/))
     expect(await screen.findByRole('link', { name: /만두/ })).toBeInTheDocument()
@@ -173,7 +172,8 @@ describe('재료 관리 화면', () => {
     expect(screen.queryByRole('link', { name: /우유/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /대파/ })).toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText('카테고리'), '과일')
+    await userEvent.click(screen.getByRole('button', { name: '카테고리' }))
+    await userEvent.click(screen.getByRole('button', { name: '과일' }))
     expect(await screen.findByText('조건에 맞는 재료가 없습니다.')).toBeInTheDocument()
   })
 
@@ -188,6 +188,100 @@ describe('재료 관리 화면', () => {
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(await screen.findByText('아직 등록된 재료가 없습니다.')).toBeInTheDocument()
     spy.mockRestore()
+  })
+})
+
+describe('재료 관리 화면의 보기 옵션', () => {
+  it('카테고리별로 묶고 카드 보기로 전환한다', async () => {
+    seedLot({ name: '우유', category: '달걀·유제품' })
+    seedLot({ name: '대파', category: '채소' })
+    renderAt('/inventory')
+    await screen.findByRole('link', { name: /우유/ })
+
+    await userEvent.selectOptions(screen.getByLabelText('묶어보기'), '카테고리별')
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      '채소',
+      '달걀·유제품',
+    ])
+
+    await userEvent.selectOptions(screen.getByLabelText('묶어보기'), '묶지 않음')
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '카드 보기로 전환' }))
+    expect(screen.getByRole('link', { name: /우유/ })).toHaveTextContent('소비기한 미등록')
+    expect(screen.getByRole('button', { name: '목록 보기로 전환' })).toBeInTheDocument()
+  })
+
+  it('정렬 기준을 바꾸면 순서가 바뀐다', async () => {
+    seedLot({ name: '우유', quantity: 1, expires_on: '2026-10-20' })
+    seedLot({ name: '대파', quantity: 3, expires_on: '2026-10-25' })
+    renderAt('/inventory')
+    await screen.findByRole('link', { name: /우유/ })
+    const names = () => screen.getAllByRole('link', { name: /우유|대파/ }).map((a) => a.textContent)
+
+    expect(names()[0]).toContain('우유')
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), '수량순')
+    expect(names()[0]).toContain('대파')
+  })
+})
+
+describe('여러 재료 선택', () => {
+  it('선택한 재료만 확인 후 삭제하고, 되돌리기로 모두 복구한다', async () => {
+    seedLot({ name: '우유' })
+    seedLot({ name: '두부' })
+    seedLot({ name: '대파' })
+    renderAt('/inventory')
+    await screen.findByRole('link', { name: /우유/ })
+
+    await userEvent.click(screen.getByRole('button', { name: '선택' }))
+    expect(screen.queryByRole('link', { name: /우유/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('checkbox', { name: /우유/ }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /두부/ }))
+    const bar = screen.getByRole('region', { name: '선택한 재료 작업' })
+    expect(within(bar).getByRole('status')).toHaveTextContent('2개 선택')
+
+    await userEvent.click(within(bar).getByRole('button', { name: '삭제' }))
+    expect(within(bar).getByRole('alert')).toHaveTextContent('2개를 삭제할까요?')
+    expect(db.lots.every((lot) => lot.status === 'active')).toBe(true)
+    await userEvent.click(within(bar).getByRole('button', { name: '삭제하기' }))
+
+    expect(await screen.findByText('재료 2개를 삭제했습니다.')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /대파/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /우유/ })).not.toBeInTheDocument()
+    expect(db.lots.map((lot) => lot.status)).toEqual(['deleted', 'deleted', 'active'])
+
+    await userEvent.click(screen.getByRole('button', { name: '되돌리기' }))
+    expect(await screen.findByText('재료 2개를 복구했습니다.')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /우유/ })).toBeInTheDocument()
+    expect(db.lots.every((lot) => lot.status === 'active')).toBe(true)
+  })
+
+  it('삭제 확인에서 취소하거나 완료를 누르면 아무것도 바뀌지 않는다', async () => {
+    seedLot({ name: '우유' })
+    renderAt('/inventory')
+    await screen.findByRole('link', { name: /우유/ })
+
+    await userEvent.click(screen.getByRole('button', { name: '선택' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /우유/ }))
+    await userEvent.click(screen.getByRole('button', { name: '삭제' }))
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+    expect(screen.getByRole('status')).toHaveTextContent('1개 선택')
+
+    await userEvent.click(screen.getByRole('button', { name: '완료' }))
+    expect(screen.queryByRole('region', { name: '선택한 재료 작업' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /우유/ })).toBeInTheDocument()
+    expect(db.lots[0].status).toBe('active')
+  })
+
+  it('아직 없는 이동·레시피 기능은 눌리지 않는다', async () => {
+    seedLot({ name: '우유' })
+    renderAt('/inventory')
+    await screen.findByRole('link', { name: /우유/ })
+    await userEvent.click(screen.getByRole('button', { name: '선택' }))
+
+    expect(screen.getByRole('button', { name: '보관 장소 이동 (준비 중)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '레시피 (준비 중)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled()
   })
 })
 
@@ -312,7 +406,7 @@ describe('재료 상세', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '되돌리기' }))
     expect(await screen.findByRole('link', { name: /양파/ })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('‘양파’을(를) 복구했습니다.')
+    expect(await screen.findByText('‘양파’을(를) 복구했습니다.')).toBeInTheDocument()
     expect(db.lots[0].status).toBe('active')
   })
 

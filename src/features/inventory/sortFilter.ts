@@ -1,11 +1,15 @@
 import type { Lot } from '@/features/inventory/types'
-import type { IngredientCategory, StorageLocation } from '@/types/inventory'
+import {
+  INGREDIENT_CATEGORIES,
+  type IngredientCategory,
+  type StorageLocation,
+} from '@/types/inventory'
 
 export const SORT_OPTIONS = [
-  { key: 'expiry', label: '기한 임박순' },
+  { key: 'expiry', label: '유통기한순' },
   { key: 'recent', label: '최근 등록순' },
   { key: 'name', label: '이름순' },
-  { key: 'quantity', label: '수량 많은 순' },
+  { key: 'quantity', label: '수량순' },
 ] as const
 export type SortKey = (typeof SORT_OPTIONS)[number]['key']
 
@@ -42,4 +46,34 @@ const COMPARATORS: Record<SortKey, (a: Lot, b: Lot) => number> = {
 
 export function sortLots(lots: Lot[], key: SortKey): Lot[] {
   return [...lots].sort(COMPARATORS[key])
+}
+
+export const GROUP_OPTIONS = [
+  { key: 'location', label: '위치별' },
+  { key: 'category', label: '카테고리별' },
+  { key: 'none', label: '묶지 않음' },
+] as const
+export type GroupKey = (typeof GROUP_OPTIONS)[number]['key']
+
+const LOCATION_GROUP_TITLES: Record<StorageLocation, string> = {
+  fridge: '냉장실',
+  freezer: '냉동실',
+  pantry: '실온',
+}
+
+export interface LotGroup {
+  /** 묶지 않으면 null */
+  title: string | null
+  lots: Lot[]
+}
+
+/** 정렬된 목록을 순서를 유지한 채 묶는다. 빈 묶음은 만들지 않는다. */
+export function groupLots(lots: Lot[], key: GroupKey, location: StorageLocation): LotGroup[] {
+  if (lots.length === 0) return []
+  if (key === 'none') return [{ title: null, lots }]
+  if (key === 'location') return [{ title: LOCATION_GROUP_TITLES[location], lots }]
+  return INGREDIENT_CATEGORIES.map((category) => ({
+    title: category,
+    lots: lots.filter((lot) => lot.category === category),
+  })).filter((group) => group.lots.length > 0)
 }
