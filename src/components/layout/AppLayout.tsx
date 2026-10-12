@@ -1,7 +1,5 @@
-import { TriangleAlert } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { NAV_ITEMS, type NavItem } from '@/app/navigation'
-import { isSupabaseConfigured } from '@/lib/supabase'
 
 function navLinkClass(isActive: boolean, layout: 'side' | 'bottom') {
   const base =
@@ -41,16 +39,6 @@ export function AppLayout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {!isSupabaseConfigured && (
-          <p
-            role="status"
-            className="text-warning border-line flex items-center gap-2 border-b bg-white px-4 py-2 text-sm"
-          >
-            <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-            Supabase 환경 변수가 설정되지 않아 서버에 연결되지 않은 상태입니다. (.env.example
-            참고)
-          </p>
-        )}
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-8">
           <Outlet />
         </main>
